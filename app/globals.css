@@ -1,0 +1,148 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  body {
+    @apply bg-white text-black dark:bg-black dark:text-gray font-sans text-sm;
+    transition: background-color 0.3s ease, color 0.3s ease;
+  }
+}
+
+@layer utilities {
+  .glass {
+    @apply bg-white/10 backdrop-blur-md border border-white/20;
+    @apply dark:bg-[#1a1a1a] dark:border-[#333333];
+    transition: background-color 0.3s ease, border-color 0.3s ease;
+  }
+  
+  .glass-strong {
+    @apply bg-white/20 backdrop-blur-lg border border-white/30;
+    @apply dark:bg-black/80 dark:backdrop-blur-xl dark:border-white/10;
+    transition: background-color 0.3s ease, border-color 0.3s ease;
+  }
+
+  @keyframes fadeInUp {
+    from {
+      opacity: 0;
+      transform: translateY(20px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  @keyframes fadeIn {
+    from {
+      opacity: 0;
+    }
+    to {
+      opacity: 1;
+    }
+  }
+
+  .animate-fade-in-up {
+    animation: fadeInUp 0.6s ease-out forwards;
+  }
+
+  .animate-fade-in {
+    animation: fadeIn 0.8s ease-out forwards;
+  }
+
+  .delay-100 {
+    animation-delay: 0.1s;
+    opacity: 0;
+  }
+
+  .delay-200 {
+    animation-delay: 0.2s;
+    opacity: 0;
+  }
+
+  .delay-300 {
+    animation-delay: 0.3s;
+    opacity: 0;
+  }
+
+  .delay-400 {
+    animation-delay: 0.4s;
+    opacity: 0;
+  }
+
+  .delay-500 {
+    animation-delay: 0.5s;
+    opacity: 0;
+  }
+
+  @keyframes glow {
+    0%, 100% {
+      opacity: 0.6;
+      transform: scale(1);
+    }
+    50% {
+      opacity: 0.8;
+      transform: scale(1.05);
+    }
+  }
+
+  .glow-effect {
+    background: radial-gradient(ellipse at center, rgba(139, 92, 246, 0.15) 0%, rgba(59, 130, 246, 0.1) 50%, transparent 70%);
+    animation: glow 4s ease-in-out infinite;
+  }
+
+  .dark .glow-effect {
+    background: radial-gradient(ellipse at center, rgba(139, 92, 246, 0.3) 0%, rgba(59, 130, 246, 0.2) 50%, transparent 70%);
+  }
+
+  .purple-glow {
+    box-shadow: 0 0 40px rgba(139, 92, 246, 0.5), 0 0 80px rgba(139, 92, 246, 0.3);
+  }
+
+  @keyframes scroll {
+    0% {
+      transform: translateX(0);
+    }
+    100% {
+      transform: translateX(-50%);
+    }
+  }
+
+  .animate-scroll {
+    animation: scroll 30s linear infinite;
+  }
+
+  .animate-scroll-reverse {
+    animation: scroll 30s linear infinite reverse;
+  }
+
+  /* Article Content Styling - Enhanced for better readability */
+  .article-content {
+    @apply text-gray-dark dark:text-gray-dark;
+  }
+
+  /* Better line spacing and typography */
+  .prose p {
+    margin-bottom: 1.5rem;
+    line-height: 1.8;
+  }
+
+  .prose p:last-child {
+    margin-bottom: 0;
+  }
+
+  /* Highlighted text */
+  .prose mark {
+    @apply bg-[#ccdfff] dark:bg-[#001966]/40 px-1 rounded;
+  }
+
+  /* Better blockquote styling */
+  .prose blockquote p {
+    margin-bottom: 0.5rem;
+  }
+
+  .prose blockquote p:last-child {
+    margin-bottom: 0;
+  }
+}
+

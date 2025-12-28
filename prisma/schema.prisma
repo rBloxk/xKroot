@@ -1,0 +1,471 @@
+// ============================================
+// xKroot Core MVP Prisma Schema
+// PostgreSQL/Supabase Ready
+// ============================================
+// This schema enables xKroot to understand people, understand companies,
+// and make intelligent hiring decisions.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ============================================
+// ENUMS
+// ============================================
+
+enum UserType {
+  candidate
+  company
+  admin
+}
+
+enum AvailabilityStatus {
+  available
+  open
+  not_looking
+  passive
+}
+
+enum WorkType {
+  remote
+  hybrid
+  onsite
+  flexible
+}
+
+enum ProficiencyLevel {
+  beginner
+  intermediate
+  advanced
+  expert
+}
+
+enum SkillSource {
+  self_reported
+  assessment
+  endorsement
+  ai_inferred
+}
+
+enum CompanySize {
+  startup
+  small
+  medium
+  large
+  enterprise
+}
+
+enum CompanyType {
+  public
+  private
+  nonprofit
+  government
+}
+
+enum StartupStage {
+  idea
+  mvp
+  scale
+}
+
+enum PriorityLevel {
+  low
+  medium
+  high
+  critical
+}
+
+enum NeedStatus {
+  active
+  fulfilled
+  cancelled
+  on_hold
+}
+
+enum RoleLevel {
+  intern
+  junior
+  mid
+  senior
+  lead
+  principal
+  executive
+}
+
+enum RoleStatus {
+  draft
+  open
+  closed
+  filled
+  cancelled
+}
+
+enum MatchStatus {
+  pending
+  presented
+  viewed
+  interested
+  applied
+  rejected
+  hired
+}
+
+enum SubscriptionType {
+  free
+  basic
+  premium
+  enterprise
+}
+
+enum SubscriptionStatus {
+  active
+  cancelled
+  expired
+  trial
+}
+
+// ============================================
+// 1️⃣ AUTH & BASE USERS (Foundation)
+// ============================================
+
+model User {
+  id        String   @id @db.Uuid
+  email     String   @unique @db.VarChar(255)
+  fullName  String?  @map("full_name") @db.VarChar(255)
+  userType  UserType @default(candidate) @map("user_type") @db.VarChar(50)
+  lastActive DateTime? @map("last_active") @db.Timestamptz(6)
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  // Relations
+  candidateProfile CandidateProfile?
+  companyProfile   CompanyProfile?
+  subscriptions   Subscription[]
+
+  @@index([lastActive], map: "idx_users_last_active")
+  @@index([userType], map: "idx_users_user_type")
+  @@map("users")
+}
+
+// ============================================
+// 2️⃣ CANDIDATE INTELLIGENCE (People Understanding)
+// ============================================
+
+model CandidateProfile {
+  id                    String             @id @default(uuid()) @db.Uuid
+  userId                String             @unique @map("user_id") @db.Uuid
+  bio                   String?            @db.Text
+  location              String?             @db.VarChar(255)
+  currentPosition       String?            @map("current_position") @db.VarChar(255)
+  yearsExperience       Int?               @map("years_experience")
+  educationLevel         String?            @map("education_level") @db.VarChar(100)
+  availabilityStatus    AvailabilityStatus @default(available) @map("availability_status") @db.VarChar(50)
+  salaryExpectationMin  Decimal?           @map("salary_expectation_min") @db.Decimal(10, 2)
+  salaryExpectationMax  Decimal?           @map("salary_expectation_max") @db.Decimal(10, 2)
+  preferredWorkType     WorkType?          @map("preferred_work_type") @db.VarChar(50)
+  preferredLocation     String?            @map("preferred_location") @db.VarChar(255)
+  linkedinUrl           String?            @map("linkedin_url") @db.Text
+  githubUrl             String?            @map("github_url") @db.Text
+  portfolioUrl          String?            @map("portfolio_url") @db.Text
+  rawResumeText         String?            @map("raw_resume_text") @db.Text
+  resumeFileUrl         String?            @map("resume_file_url") @db.Text
+  onboardingAnswers    Json?              @map("onboarding_answers") @db.JsonB
+  profileCompleteness   Int                @default(0) @map("profile_completeness")
+  createdAt             DateTime           @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt             DateTime           @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  // Relations
+  user        User                  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  skills      CandidateSkill[]
+  assessments CandidateAssessment[]
+  signals     CandidateBehaviorSignal[]
+  matches     MatchResult[]
+
+  @@index([userId], map: "idx_candidate_profile_user_id")
+  @@index([availabilityStatus], map: "idx_candidate_profile_availability")
+  @@map("candidate_profile")
+}
+
+model CandidateSkill {
+  id               String          @id @default(uuid()) @db.Uuid
+  candidateId      String          @map("candidate_id") @db.Uuid
+  skillName        String          @map("skill_name") @db.VarChar(255)
+  skillCategory    String?         @map("skill_category") @db.VarChar(100)
+  proficiencyLevel ProficiencyLevel @default(intermediate) @map("proficiency_level") @db.VarChar(50)
+  yearsExperience  Decimal?        @map("years_experience") @db.Decimal(4, 1)
+  verified         Boolean         @default(false)
+  source           SkillSource      @default(self_reported) @db.VarChar(50)
+  createdAt        DateTime        @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt        DateTime        @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  // Relations
+  candidate CandidateProfile @relation(fields: [candidateId], references: [id], onDelete: Cascade)
+
+  @@index([candidateId], map: "idx_candidate_skill_candidate_id")
+  @@index([skillName], map: "idx_candidate_skill_name")
+  @@map("candidate_skill")
+}
+
+model CandidateAssessment {
+  id                    String   @id @default(uuid()) @db.Uuid
+  candidateId           String   @map("candidate_id") @db.Uuid
+  assessmentType        String   @map("assessment_type") @db.VarChar(100)
+  assessmentData       Json     @map("assessment_data") @db.JsonB
+  aiModelVersion        String?  @map("ai_model_version") @db.VarChar(50)
+  score                 Decimal? @db.Decimal(5, 2)
+  scoreBreakdown        Json?    @map("score_breakdown") @db.JsonB
+  strengths             String[] @db.Text
+  areasForImprovement   String[] @map("areas_for_improvement") @db.Text
+  recommendations       String[] @db.Text
+  assessmentDate        DateTime @default(now()) @map("assessment_date") @db.Timestamptz(6)
+  createdAt             DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt             DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  // Relations
+  candidate CandidateProfile @relation(fields: [candidateId], references: [id], onDelete: Cascade)
+
+  @@index([candidateId], map: "idx_candidate_assessment_candidate_id")
+  @@map("candidate_assessment")
+}
+
+model CandidateBehaviorSignal {
+  id                String   @id @default(uuid()) @db.Uuid
+  candidateId       String   @map("candidate_id") @db.Uuid
+  signalType        String   @map("signal_type") @db.VarChar(100)
+  signalData        Json?    @map("signal_data") @db.JsonB
+  signalStrength    Decimal  @default(1.0) @map("signal_strength") @db.Decimal(3, 2)
+  interpretedMeaning String? @map("interpreted_meaning") @db.Text
+  createdAt         DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  // Relations
+  candidate CandidateProfile @relation(fields: [candidateId], references: [id], onDelete: Cascade)
+
+  @@index([candidateId], map: "idx_candidate_behavior_signal_candidate_id")
+  @@map("candidate_behavior_signal")
+}
+
+// ============================================
+// 3️⃣ COMPANY INTELLIGENCE (Business Understanding)
+// ============================================
+
+model CompanyProfile {
+  id                  String      @id @default(uuid()) @db.Uuid
+  userId              String       @unique @map("user_id") @db.Uuid
+  companyName         String       @map("company_name") @db.VarChar(255)
+  companySize         CompanySize? @map("company_size") @db.VarChar(50)
+  industry            String?       @db.VarChar(255)
+  description         String?      @db.Text
+  websiteUrl          String?      @map("website_url") @db.Text
+  location            String?       @db.VarChar(255)
+  headquartersLocation String?     @map("headquarters_location") @db.VarChar(255)
+  companyType         CompanyType? @map("company_type") @db.VarChar(50)
+  fundingStage        String?      @map("funding_stage") @db.VarChar(50)
+  startupStage        StartupStage? @map("startup_stage") @db.VarChar(50)
+  companyCulture      Json?        @map("company_culture") @db.JsonB
+  benefitsOffered     String[]    @map("benefits_offered") @db.Text
+  techStack           String[]    @map("tech_stack") @db.Text
+  createdAt           DateTime     @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt           DateTime     @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  // Relations
+  user    User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  needs   CompanyNeed[]
+  roles   RoleRequirement[]
+  matches MatchResult[]
+
+  @@index([userId], map: "idx_company_profile_user_id")
+  @@index([startupStage], map: "idx_company_profile_startup_stage")
+  @@map("company_profile")
+}
+
+model CompanyNeed {
+  id                String        @id @default(uuid()) @db.Uuid
+  companyId         String        @map("company_id") @db.Uuid
+  needType          String        @map("need_type") @db.VarChar(100)
+  priorityLevel     PriorityLevel @default(medium) @map("priority_level") @db.VarChar(50)
+  description       String        @db.Text
+  requiredSkills    String[]      @map("required_skills") @db.Text
+  preferredSkills   String[]      @map("preferred_skills") @db.Text
+  niceToHaveSkills  String[]      @map("nice_to_have_skills") @db.Text
+  urgencyScore      Int           @default(50) @map("urgency_score")
+  budgetRangeMin    Decimal?      @map("budget_range_min") @db.Decimal(10, 2)
+  budgetRangeMax    Decimal?      @map("budget_range_max") @db.Decimal(10, 2)
+  timeline          String?       @db.VarChar(255)
+  status            NeedStatus    @default(active) @db.VarChar(50)
+  createdAt         DateTime      @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt         DateTime      @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  // Relations
+  company CompanyProfile   @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  roles   RoleRequirement[]
+
+  @@index([companyId], map: "idx_company_need_company_id")
+  @@index([status], map: "idx_company_need_status")
+  @@map("company_need")
+}
+
+model RoleRequirement {
+  id                  String      @id @default(uuid()) @db.Uuid
+  companyId           String      @map("company_id") @db.Uuid
+  companyNeedId       String?     @map("company_need_id") @db.Uuid
+  roleTitle           String      @map("role_title") @db.VarChar(255)
+  roleLevel           RoleLevel?  @map("role_level") @db.VarChar(50)
+  department          String?     @db.VarChar(255)
+  jobDescription      String      @map("job_description") @db.Text
+  requiredSkills      Json        @map("required_skills") @db.JsonB
+  preferredQualifications String[] @map("preferred_qualifications") @db.Text
+  responsibilities    String[]    @db.Text
+  workType            WorkType?   @map("work_type") @db.VarChar(50)
+  location            String?     @db.VarChar(255)
+  salaryMin           Decimal?   @map("salary_min") @db.Decimal(10, 2)
+  salaryMax           Decimal?   @map("salary_max") @db.Decimal(10, 2)
+  equityOffered       Boolean     @default(false) @map("equity_offered")
+  benefits            String[]    @db.Text
+  applicationDeadline DateTime?   @map("application_deadline") @db.Timestamptz(6)
+  status              RoleStatus  @default(open) @db.VarChar(50)
+  viewsCount          Int         @default(0) @map("views_count")
+  applicationsCount   Int         @default(0) @map("applications_count")
+  createdAt           DateTime    @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt           DateTime    @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  // Relations
+  company     CompanyProfile @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  companyNeed CompanyNeed?   @relation(fields: [companyNeedId], references: [id], onDelete: SetNull)
+  matches     MatchResult[]
+  matchFactors MatchFactor[]
+
+  @@index([companyId], map: "idx_role_requirement_company_id")
+  @@index([status], map: "idx_role_requirement_status")
+  @@map("role_requirement")
+}
+
+// ============================================
+// 4️⃣ MATCHING & DECISION INTELLIGENCE (The Root Logic)
+// ============================================
+
+model MatchResult {
+  id                  String      @id @default(uuid()) @db.Uuid
+  candidateId         String      @map("candidate_id") @db.Uuid
+  roleRequirementId   String      @map("role_requirement_id") @db.Uuid
+  companyId           String      @map("company_id") @db.Uuid
+  matchScore          Decimal     @map("match_score") @db.Decimal(5, 2)
+  matchConfidence     Decimal     @default(0.5) @map("match_confidence") @db.Decimal(3, 2)
+  matchReasoning      String?     @map("match_reasoning") @db.Text
+  skillMatchPercentage Decimal?   @map("skill_match_percentage") @db.Decimal(5, 2)
+  culturalFitScore    Decimal?    @map("cultural_fit_score") @db.Decimal(5, 2)
+  overallFitScore     Decimal?    @map("overall_fit_score") @db.Decimal(5, 2)
+  matchStatus         MatchStatus @default(pending) @map("match_status") @db.VarChar(50)
+  aiModelVersion      String?     @map("ai_model_version") @db.VarChar(50)
+  createdAt           DateTime    @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt           DateTime    @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  // Relations
+  candidate       CandidateProfile @relation(fields: [candidateId], references: [id], onDelete: Cascade)
+  roleRequirement RoleRequirement  @relation(fields: [roleRequirementId], references: [id], onDelete: Cascade)
+  company         CompanyProfile   @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  factors         MatchFactor[]
+
+  @@unique([candidateId, roleRequirementId])
+  @@index([candidateId], map: "idx_match_result_candidate_id")
+  @@index([roleRequirementId], map: "idx_match_result_role_id")
+  @@index([companyId], map: "idx_match_result_company_id")
+  @@index([matchScore(sort: Desc)], map: "idx_match_result_score")
+  @@index([matchStatus], map: "idx_match_result_status")
+  @@map("match_result")
+}
+
+model MatchFactor {
+  id                String   @id @default(uuid()) @db.Uuid
+  matchResultId     String   @map("match_result_id") @db.Uuid
+  factorType        String   @map("factor_type") @db.VarChar(100)
+  factorName        String   @map("factor_name") @db.VarChar(255)
+  factorScore       Decimal  @map("factor_score") @db.Decimal(5, 2)
+  factorWeight      Decimal  @default(1.0) @map("factor_weight") @db.Decimal(3, 2)
+  factorExplanation String?  @map("factor_explanation") @db.Text
+  evidence          Json?    @db.JsonB
+  createdAt         DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  // Relations
+  matchResult MatchResult @relation(fields: [matchResultId], references: [id], onDelete: Cascade)
+
+  @@index([matchResultId], map: "idx_match_factor_match_result_id")
+  @@map("match_factor")
+}
+
+// ============================================
+// 5️⃣ AI SYSTEM & CONTROL (Critical but Minimal)
+// ============================================
+
+model AiPrompt {
+  id            String   @id @default(uuid()) @db.Uuid
+  promptName    String   @unique @map("prompt_name") @db.VarChar(255)
+  promptVersion String   @map("prompt_version") @db.VarChar(50)
+  promptCategory String? @map("prompt_category") @db.VarChar(100)
+  promptTemplate String  @map("prompt_template") @db.Text
+  variables     Json?    @db.JsonB
+  modelConfig   Json?    @map("model_config") @db.JsonB
+  isActive      Boolean  @default(true) @map("is_active")
+  description   String? @db.Text
+  createdAt     DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt     DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  // Relations
+  outputs AiOutput[]
+
+  @@unique([promptName, promptVersion])
+  @@index([isActive], map: "idx_ai_prompt_active")
+  @@map("ai_prompt")
+}
+
+model AiOutput {
+  id              String    @id @default(uuid()) @db.Uuid
+  promptId        String?    @map("prompt_id") @db.Uuid
+  inputData       Json       @map("input_data") @db.JsonB
+  outputData      Json       @map("output_data") @db.JsonB
+  modelName       String?    @map("model_name") @db.VarChar(100)
+  modelVersion    String?    @map("model_version") @db.VarChar(50)
+  tokensUsed      Int?       @map("tokens_used")
+  processingTimeMs Int?      @map("processing_time_ms")
+  success         Boolean     @default(true)
+  errorMessage    String?     @map("error_message") @db.Text
+  metadata        Json?      @db.JsonB
+  createdAt       DateTime   @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  // Relations
+  prompt AiPrompt? @relation(fields: [promptId], references: [id], onDelete: SetNull)
+
+  @@index([promptId], map: "idx_ai_output_prompt_id")
+  @@index([createdAt(sort: Desc)], map: "idx_ai_output_created_at")
+  @@map("ai_output")
+}
+
+// ============================================
+// 6️⃣ PAYMENTS & ACCESS (Optional for MVP, but Ready)
+// ============================================
+
+model Subscription {
+  id                  String            @id @default(uuid()) @db.Uuid
+  userId              String            @map("user_id") @db.Uuid
+  subscriptionType    SubscriptionType  @map("subscription_type") @db.VarChar(50)
+  status              SubscriptionStatus @default(active) @db.VarChar(50)
+  currentPeriodStart  DateTime?         @map("current_period_start") @db.Timestamptz(6)
+  currentPeriodEnd    DateTime?         @map("current_period_end") @db.Timestamptz(6)
+  cancelAtPeriodEnd   Boolean           @default(false) @map("cancel_at_period_end")
+  features            Json?             @db.JsonB
+  stripeSubscriptionId String?         @map("stripe_subscription_id") @db.VarChar(255)
+  createdAt           DateTime          @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt           DateTime          @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  // Relations
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId], map: "idx_subscription_user_id")
+  @@index([status], map: "idx_subscription_status")
+  @@map("subscription")
+}
+

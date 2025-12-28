@@ -1,0 +1,20 @@
+# Environment Variables for Vercel Deployment
+# Copy these variables to your Vercel project settings:
+# Settings > Environment Variables
+
+# Supabase Configuration
+# Get these from your Supabase project settings: https://app.supabase.com/project/_/settings/api
+NEXT_PUBLIC_SUPABASE_URL=https://your-project-id.supabase.co
+NEXT_PUBLIC_SUPABASE_ANON_KEY=your-anon-key-here
+SUPABASE_SERVICE_ROLE_KEY=your-service-role-key-here
+
+# Base URL for social sharing (Open Graph & Twitter Cards)
+# For production, use your actual domain: https://yourdomain.com
+# For Vercel, this is optional - it will auto-detect from VERCEL_URL
+NEXT_PUBLIC_BASE_URL=https://yourdomain.com
+
+# Note: JWT_SECRET is no longer needed - authentication is handled by Supabase Auth
+
+# Optional: Port (defaults to 3000)
+# PORT=3000
+
